@@ -2,7 +2,7 @@
 from torchvision import transforms as T
 from torchvision.transforms import Compose
 from torchvision.transforms.functional import InterpolationMode
-
+import numpy as np
 
 IMAGENET_PIXEL_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_PIXEL_STD = [0.229, 0.224, 0.225]
@@ -16,7 +16,6 @@ pixel_statistics = {
     "clip": (CLIP_PIXEL_MEAN, CLIP_PIXEL_STD),
     "siglip": (SIGLIP_PIXEL_MEAN, SIGLIP_PIXEL_STD),
     "internvit": (IMAGENET_PIXEL_MEAN, IMAGENET_PIXEL_STD),
-    "radio": (CLIP_PIXEL_MEAN, CLIP_PIXEL_STD),
 }
 
 
@@ -33,6 +32,21 @@ def get_visual_transform(img, img_h, img_w, use_tiling=False, max_num_tiles=1, u
     else:
         imgs = [transform(img)]
 
+    return imgs
+
+
+def get_mock_visual_transform(img, img_h, img_w, use_tiling=False, max_num_tiles=1, use_thumbnail=False, augment=False, vision_model_type="clip"):
+    pixel_mean, pixel_std = pixel_statistics[vision_model_type]
+
+    assert not augment, "Image augmentation not implemented."
+    transform = build_transform(img_h, pixel_mean, pixel_std, vision_model_type)
+
+    random_int = np.random.randint(4, 20)
+    
+    img = transform(img)
+    
+    imgs = [img for i in range(random_int)]
+    
     return imgs
 
 
@@ -99,7 +113,7 @@ def dynamic_preprocess(image, min_num=1, max_num=6, image_size=448, use_thumbnai
 # Based on https://github.com/openai/CLIP/blob/dcba3cb2e2827b402d2701e7e1c7d9fed8a20ef1/clip/clip.py#L79
 # and https://github.com/OpenGVLab/InternVL/blob/aa521e6eb1df4cf153aa4118fcf13e673c055d46/internvl_chat/internvl/train/dataset.py#L276
 def build_transform(input_size, pixel_mean, pixel_std, vision_model_type):
-    if vision_model_type in ("siglip", "internvit", "radio"):
+    if vision_model_type in ("siglip", "internvit"):
         transform = T.Compose([
             T.Lambda(lambda img: img.convert('RGB') if img.mode != 'RGB' else img),
             T.Resize((input_size, input_size), interpolation=InterpolationMode.BICUBIC),

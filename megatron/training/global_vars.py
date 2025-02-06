@@ -19,10 +19,27 @@ _GLOBAL_ONE_LOGGER = None
 _GLOBAL_ADLR_AUTORESUME = None
 _GLOBAL_TIMERS = None
 _GLOBAL_SIGNAL_HANDLER = None
+_GLOBAL_SAMPLES = None
+
+
+def _set_global_samples(args):
+    """Initialize timers."""
+    global _GLOBAL_SAMPLES
+    _ensure_var_is_not_initialized(_GLOBAL_SAMPLES, 'global samples')
+    _GLOBAL_SAMPLES = 0
+
+def get_global_samples():
+    """Return timers."""
+    _ensure_var_is_initialized(_GLOBAL_SAMPLES, 'global samples')
+    return _GLOBAL_SAMPLES
+
+def set_global_samples(var):
+    global _GLOBAL_SAMPLES
+    _GLOBAL_SAMPLES = var
 
 def get_args():
     """Return arguments."""
-    _ensure_var_is_initialized(_GLOBAL_ARGS, 'args')
+    _ensure_var_is_initialized(_GLOBAL_SAMPLES, 'args')
     return _GLOBAL_ARGS
 
 
@@ -96,6 +113,7 @@ def set_global_variables(args, build_tokenizer=True):
     _set_one_logger(args)
     _set_adlr_autoresume(args)
     _set_timers(args)
+    _set_global_samples(args)
 
     if args.exit_signal_handler:
         _set_signal_handler()

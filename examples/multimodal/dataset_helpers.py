@@ -8,7 +8,7 @@ import traceback
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
-from image_processing import get_visual_transform
+from image_processing import get_visual_transform, get_mock_visual_transform
 from PIL import Image
 from torchvision.transforms import ToPILImage
 import numpy as np
@@ -196,6 +196,11 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
         total_img_embeddings_len = total_num_tiles * self.num_image_embeddings_per_tile
         max_text_tokens = self.packing_seq_length - total_img_embeddings_len + total_num_images
 
+        # print('total_num_images:\t', total_num_images)
+        # print('total_num_tiles:\t', total_num_tiles)
+        # print('total_img_embeddings_len:\t', total_img_embeddings_len)
+        # print('max_text_tokens:\t', max_text_tokens)
+
         input_ids = input_ids[:max_text_tokens]
         target = target[:max_text_tokens]
 
@@ -207,6 +212,8 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
 
     @stateless(restore_seeds=True)
     def encode_sample(self, sample: Union[CaptioningSample, OCRSample, VQASample, SimilarityInterleavedSample]):
+        # print('encode_sample')
+        # print(sample)
         if isinstance(sample, OCRSample):
             if "pdfa" in sample.__key__:
                 yield self.combined_ocr_encoder(sample, task_type='encode_pdf')
@@ -284,7 +291,10 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
             sample.image, self.img_h, self.img_w, self.args.use_tiling, self.args.max_num_tiles, self.args.use_thumbnail, augment,
             self.args.vision_model_type,
         )
+        
         num_tiles = [len(imgs)]
+
+        # print('num_tiles:\t', num_tiles)
 
         # LLAVA training: override text-prompt with just the image.
         conv = [
@@ -409,8 +419,6 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
             # Grab the selected frames of the video as a tensor with shape
             # fhwc: (num_frames, num_channels, height, width).
             video_fchw = sample.images.frames
-            if video_fchw.shape[0] == 0:
-                raise ValueError(f"Video {sample.__key__} {sample.__restore_key__} {sample.texts} has no frames.")
             selected_frames = torch.linspace(
                 0, video_fchw.shape[0] - 1, self.args.num_frames).long()
             video_fchw = video_fchw[selected_frames]
@@ -453,6 +461,8 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
         )
 
     def encode_any_single_turn_vqa(self, sample):
+        # print('encode_any_single_turn_vqa')
+        # print(sample.image.size)
         """Encode MultiChoiceVQA or VQA sample."""
         augment = sample.__subflavors__['augmentation'] if 'augmentation' in sample.__subflavors__ else False
         has_video = sample.__subflavors__['has_video'] if 'has_video' in sample.__subflavors__ else False
@@ -471,12 +481,19 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
                     self.args.use_tiling, self.args.max_num_tiles,
                     self.args.use_thumbnail, augment, self.args.vision_model_type)
         else:
-            imgs = get_visual_transform(
+            # imgs = get_visual_transform(
+            #     sample.image, self.img_h, self.img_w, self.args.use_tiling, self.args.max_num_tiles,
+            #     self.args.use_thumbnail, augment, self.args.vision_model_type,
+            # )
+
+            imgs = get_mock_visual_transform(
                 sample.image, self.img_h, self.img_w, self.args.use_tiling, self.args.max_num_tiles,
                 self.args.use_thumbnail, augment, self.args.vision_model_type,
             )
 
         num_tiles = [len(imgs)]
+        
+        # print('num_tiles:\t', num_tiles)
 
         if isinstance(sample, MultiChoiceVQASample):
             cur_prompt = format_multichoice_question(sample.context, sample.choices)
@@ -519,6 +536,7 @@ class TaskEncoder(DefaultTaskEncoder[OCRSample, OCRSample, ImageTaskBatchPacked,
         input_ids, target = self.tokenizer.tokenize_conversation(conversation, True, False)
 
         if self.is_packing_enabled:
+            # print('_truncate_for_packing')
             input_ids, target = self._truncate_for_packing(input_ids, target, num_tiles)
 
         return ImageTaskSample(
